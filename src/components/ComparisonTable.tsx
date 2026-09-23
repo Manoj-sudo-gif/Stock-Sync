@@ -3,54 +3,44 @@ import {
   Search,
   Download,
   Copy,
-  AlertOctagon,
-  TrendingDown,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Edit3,
   Store,
   Barcode,
-  Palette,
   Layers,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { ColumnMapping, ComparisonItem, TabKey, UploadedFile } from '../types';
-import {
-  downloadModifiedEcommerceFile,
-  exportChangedStockReport,
-} from '../utils/excel';
-import { ChangedReportModal } from './ChangedReportModal';
+import { exportChangedStockReport } from '../utils/excel';
 
 interface ComparisonTableProps {
   items: ComparisonItem[];
-  activeTab: TabKey;
-  onTabChange: (tab: TabKey) => void;
+  activeTab?: TabKey;
+  onTabChange?: (tab: TabKey) => void;
   onCopyNotice: (msg: string) => void;
-  onUpdateTargetQty: (itemId: string, newQty: number) => void;
-  ecommerceFile: UploadedFile | null;
-  columnMapping: ColumnMapping;
+  onUpdateTargetQty?: (itemId: string, newQty: number) => void;
+  ecommerceFile?: UploadedFile | null;
+  columnMapping?: ColumnMapping;
 }
 
 export const ComparisonTable: React.FC<ComparisonTableProps> = ({
   items,
-  activeTab,
-  onTabChange,
   onCopyNotice,
-  onUpdateTargetQty,
-  ecommerceFile,
-  columnMapping,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<
-    'mainCategory' | 'productType' | 'name' | 'sku' | 'toonLabel' | 'wondersoftQty' | 'ecommerceQty' | 'difference'
+    | 'mainCategory'
+    | 'productType'
+    | 'name'
+    | 'sku'
+    | 'toonLabel'
+    | 'wondersoftQty'
+    | 'ecommerceQty'
+    | 'difference'
   >('difference');
   const [sortAsc, setSortAsc] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
-
-  const [isChangedModalOpen, setIsChangedModalOpen] = useState(false);
 
   // Distinct store list for quick store filtering
   const availableStores = useMemo(() => {
@@ -61,25 +51,12 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
     return Array.from(set).sort();
   }, [items]);
 
-  // Filter items based on activeTab, search, and store filter
+  // Filter items based on search and store filter
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       // Store filter
       if (selectedStoreFilter !== 'all') {
         if (item.storeName.toLowerCase() !== selectedStoreFilter.toLowerCase()) return false;
-      }
-
-      // Tab filter
-      if (activeTab === 'changed') {
-        if (!item.hasDecreased && !item.isOutOfStock && item.difference === 0 && !item.isManuallyEdited) {
-          return false;
-        }
-      } else if (activeTab === 'decreased') {
-        if (!item.hasDecreased) return false;
-      } else if (activeTab === 'out_of_stock') {
-        if (!item.isOutOfStock) return false;
-      } else if (activeTab === 'in_sync') {
-        if (!item.isInSync) return false;
       }
 
       // Search filter (Item Name, EAN, Main Category, Product Type, Store, or Style No)
@@ -97,7 +74,7 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
 
       return true;
     });
-  }, [items, activeTab, searchTerm, selectedStoreFilter]);
+  }, [items, searchTerm, selectedStoreFilter]);
 
   // Sort filtered items
   const sortedItems = useMemo(() => {
@@ -153,8 +130,8 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
     onCopyNotice(`Copied ${sortedItems.length} EANs to clipboard`);
   };
 
-  // Direct Excel Download matching result page view or modified ecommerce file
-  const handleDownloadResultTableView = () => {
+  // Direct Excel Download with 8 required columns and color highlighting
+  const handleDownloadExcel = () => {
     const { rowCount, filename } = exportChangedStockReport(
       items,
       undefined,
@@ -164,206 +141,36 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
     onCopyNotice(`✓ Downloaded ${filename} (${rowCount} rows). In-Sync (Diff 0) highlighted in green!`);
   };
 
-  const handleDownloadUpdatedEcommerce = () => {
-    if (ecommerceFile && ecommerceFile.rawRows && ecommerceFile.rawRows.length > 0) {
-      const { rowCount, filename } = downloadModifiedEcommerceFile({
-        originalEcommerceRows: ecommerceFile.rawRows,
-        ecommerceSkuCol: columnMapping.skuColumn,
-        ecommerceQtyCol: columnMapping.ecommerceQtyColumn,
-        comparisonItems: items,
-        onlyChanged: false,
-        baseName: `${ecommerceFile.name.replace(/\.[^/.]+$/, '')}_updated_stock`,
-      });
-      onCopyNotice(
-        `✓ Downloaded ${filename} (${rowCount} rows). Stock changes & in-sync highlighted in color!`
-      );
-    } else {
-      handleDownloadResultTableView();
-    }
-  };
-
-  const decreasedCount = items.filter((i) => i.hasDecreased).length;
-  const oosCount = items.filter((i) => i.isOutOfStock).length;
-  const inSyncCount = items.filter((i) => i.isInSync).length;
-  const changedCount = items.filter(
-    (i) => i.hasDecreased || i.isOutOfStock || i.difference !== 0 || i.isManuallyEdited
-  ).length;
-
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-      {/* Top Bar: Tabs, Filters, and Actions */}
+      {/* Top Bar: Title, Count, and Single Excel Download */}
       <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/60 flex flex-col gap-4">
-        {/* Row 1: Status Tabs and Action Buttons */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Minimal Filter Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-xl text-xs font-semibold overflow-x-auto">
-            <button
-              onClick={() => {
-                onTabChange('all');
-                setCurrentPage(1);
-              }}
-              id="tab-all"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'all'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>All Products</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[11px] ${
-                  activeTab === 'all' ? 'bg-white/30 text-white' : 'bg-slate-300 text-slate-800'
-                }`}
-              >
-                {items.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                onTabChange('changed');
-                setCurrentPage(1);
-              }}
-              id="tab-changed"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'changed'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <TrendingDown className="w-3.5 h-3.5" />
-              <span>Changed Stock</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[11px] ${
-                  activeTab === 'changed'
-                    ? 'bg-white/30 text-white'
-                    : 'bg-amber-100 text-amber-900 font-bold'
-                }`}
-              >
-                {changedCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                onTabChange('decreased');
-                setCurrentPage(1);
-              }}
-              id="tab-decreased"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'decreased'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <span>Decreased</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[11px] ${
-                  activeTab === 'decreased'
-                    ? 'bg-white/30 text-white'
-                    : 'bg-amber-100 text-amber-800'
-                }`}
-              >
-                {decreasedCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                onTabChange('out_of_stock');
-                setCurrentPage(1);
-              }}
-              id="tab-out-of-stock"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'out_of_stock'
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <AlertOctagon className="w-3.5 h-3.5" />
-              <span>Out of Stock</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[11px] ${
-                  activeTab === 'out_of_stock'
-                    ? 'bg-white/30 text-white'
-                    : 'bg-rose-100 text-rose-800'
-                }`}
-              >
-                {oosCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                onTabChange('in_sync');
-                setCurrentPage(1);
-              }}
-              id="tab-in-sync"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'in_sync'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>In Sync</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[11px] ${
-                  activeTab === 'in_sync'
-                    ? 'bg-white/30 text-white'
-                    : 'bg-emerald-100 text-emerald-800'
-                }`}
-              >
-                {inSyncCount}
-              </span>
-            </button>
+        {/* Row 1: Header title + Download Excel button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>All Products</span>
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                  {items.length.toLocaleString()} items
+                </span>
+              </h3>
+            </div>
           </div>
 
-          {/* Minimal Action Buttons: Review & Single Excel Download */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Review Changed Data Modal */}
+          {/* Single Prominent Excel (.xlsx) Download */}
+          <div>
             <button
-              onClick={() => setIsChangedModalOpen(true)}
-              id="open-changed-report-btn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 transition-colors shadow-xs cursor-pointer active:scale-95"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-blue-600" />
-              <span>Review Changed Data</span>
-              {changedCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold">
-                  {changedCount}
-                </span>
-              )}
-            </button>
-
-            {/* Download Results View Excel (.xlsx) exactly matching UI table with Difference 0 in green */}
-            <button
-              onClick={handleDownloadResultTableView}
-              id="download-results-view-btn"
-              title="Download Excel matching results page table with in-sync (Difference 0) in green"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 transition-all shadow-xs cursor-pointer active:scale-95"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>Download Result View (.xlsx)</span>
-              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                Diff 0 Green
-              </span>
-            </button>
-
-            {/* Single Prominent Excel (.xlsx) Download with Color Highlighting */}
-            <button
-              onClick={handleDownloadUpdatedEcommerce}
-              id="download-updated-excel-btn"
-              title="Download updated E-Commerce Excel file with stock changes & in-sync highlighted in color"
+              onClick={handleDownloadExcel}
+              id="download-excel-btn"
+              title="Download Excel file with stock comparison results"
               className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-xs cursor-pointer active:scale-95"
             >
               <Download className="w-4 h-4" />
-              <span>Download Updated Excel</span>
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/50 text-[10px] text-blue-100 font-medium">
-                <Palette className="w-3 h-3 text-amber-200" />
-                Color Highlighted
-              </span>
+              <span>Download Excel (.xlsx)</span>
             </button>
           </div>
         </div>
@@ -610,7 +417,7 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition-colors cursor-pointer"
           >
             <Copy className="w-3.5 h-3.5 text-slate-500" />
-            <span>Copy All EANs in Current Tab ({sortedItems.length})</span>
+            <span>Copy All EANs ({sortedItems.length})</span>
           </button>
         </div>
 
@@ -648,19 +455,6 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Review Changed Data Modal */}
-      {isChangedModalOpen && (
-        <ChangedReportModal
-          isOpen={isChangedModalOpen}
-          onClose={() => setIsChangedModalOpen(false)}
-          items={items}
-          onUpdateTargetQty={onUpdateTargetQty}
-          onCopyNotice={onCopyNotice}
-          ecommerceFile={ecommerceFile}
-          columnMapping={columnMapping}
-        />
-      )}
     </div>
   );
 };

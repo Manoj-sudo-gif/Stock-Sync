@@ -244,7 +244,7 @@ export default function App() {
       setComparisonItems(result.items);
       setComparisonSummary(result.summary);
       setIsMappingModalOpen(false);
-      setActiveTab('decreased'); // Default to Stock Decreased tab
+      setActiveTab('all');
       setShowUploadAccordion(false);
 
       addToast(
