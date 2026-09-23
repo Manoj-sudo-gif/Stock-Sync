@@ -1,0 +1,6 @@
+{
+  "name": "Stock Comparison Dashboard",
+  "description": "Mobile-first stock comparison between Wondersoft ERP and E-commerce store with Excel/CSV parsing and export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
